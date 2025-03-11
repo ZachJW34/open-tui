@@ -1,0 +1,48 @@
+# Node_modules and bun-related directories
+node_modules/
+.bun/
+dist
+
+# Generated logs and cache
+*.log
+*.txt
+bun-scripts-*
+bun-run-*
+
+# IDE-specific files and settings
+.vscode/
+.idea/
+*.swp  # Vim swap files
+*.swo
+
+# Editor backup files
+*~.?
+
+# Local development
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# TypeScript-related files (if using TypeScript)
+.tsbuildinfo
+.tscache/
+out-tsc/
+*.tsbuildinfo
+test-results/
+
+# Coverage reports
+coverage/
+.npmignore
+.bunignore
+npm-debug.log*
+bun-debug.log*
+
+# Debugging and test directories
+.debug
+test-results/
+
+# Local development artifacts
+.DS_Store  # macOS specific
+.idea/     # JetBrains IDE settings
