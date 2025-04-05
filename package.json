@@ -16,7 +16,8 @@
   },
   "scripts": {
     "build": "bun scripts/build.ts",
-    "dev": "bun --define window='global' src/index.tsx"
+    "dev": "bun --define window='global' src/index.tsx",
+    "prepare": "husky && husky install"
   },
   "files": [
     "dist",
@@ -26,7 +27,7 @@
   ],
   "dependencies": {
     "@tanstack/react-query": "^4.36.1",
-    "marked": "^15.0.7",
+    "marked": "^11",
     "marked-terminal": "^7.3.0",
     "meow": "^13.0.0",
     "pino": "^9.6.0",
@@ -43,9 +44,13 @@
     "@types/marked-terminal": "^6.1.1",
     "@types/react": "^18.0.32",
     "chalk": "^5.4.1",
-    "prettier": "^3.5.1",
+    "husky": "^9.1.7",
+    "prettier": "^3.5.3",
     "react-devtools": "^6.1.1",
     "react-devtools-core": "^6.1.1",
     "ws": "^8.18.1"
+  },
+  "lint-staged": {
+    "*.{js,ts,tsx,css,md,json}": "prettier --write"
   }
 }

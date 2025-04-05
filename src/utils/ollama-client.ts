@@ -190,3 +190,11 @@ export function genNewChat(): ChatSlim {
     updated_at: Date.now() / 1000,
   };
 }
+
+export async function getFullChat(chatId: string): Promise<ChatFull> {
+  if (chatId === NEW_CHAT_ID) {
+    return genNewChat() as ChatFull;
+  }
+
+  return getChat(chatId);
+}

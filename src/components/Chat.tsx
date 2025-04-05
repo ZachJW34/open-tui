@@ -1,16 +1,13 @@
 import { Box, Text, Spacer } from 'tuir';
 import React, { useEffect, useRef, useState } from 'react';
 import { ScrollArea } from './ScrollArea.js';
-import { useQuery } from '@tanstack/react-query';
 import { ChatCompletionData, ChatEvent, ChatHistory, Message } from '../types.js';
 import {
   chatCompleted,
   createMessagesList,
   createNewChat,
   generateOpenAIChatCompletion,
-  getChat,
   getChats,
-  NEW_CHAT_ID,
   removeDetails,
   updateChatById,
 } from '../utils/ollama-client.js';
@@ -47,6 +44,7 @@ let _chatId: string;
 
 export const Chat = (props: { prompt: string }) => {
   const $chat = openWebStore.useState((s) => s.chat);
+  const $chatQuery = openWebStore.useState((s) => s.chatQuery);
   const $model = openWebStore.useState((s) => s.model);
   const $socket = openWebStore.useState((s) => s.socket);
   const setChat = openWebStore.useState((s) => s.setChat);
@@ -54,23 +52,31 @@ export const Chat = (props: { prompt: string }) => {
   const ref = useRef<any>();
   const { isFocus: isFocused } = useNode();
   const [chatHistory, setChatHistory] = useState<ChatHistory | null>(null);
-
-  const chatQuery = useQuery({
-    queryKey: ['chat', $chat.id],
-    queryFn: () => {
-      if ($chat.id === NEW_CHAT_ID) {
-        return Promise.resolve(null);
-      }
-      return getChat($chat.id);
-    },
-    onSuccess(data) {
-      _chatId = $chat.id;
-      _chatHistory = data?.chat.history || ({ currentId: null, messages: {} } as any);
-      setChatHistory(_chatHistory);
-    },
-  });
-
   const { width: appWidth, height: appHeight } = useAppStore((s) => s.dimensions);
+  const promptHeight = useAppStore((s) => s.promptHeight);
+
+  useEffect(() => {
+    if ($chatQuery.type === 'SUCCESS') {
+      _chatId = $chat.id;
+      _chatHistory = $chatQuery.data?.chat.history || ({ currentId: null, messages: {} } as any);
+      setChatHistory(_chatHistory);
+    }
+  }, [$chat, $chatQuery]);
+
+  // const chatQuery = useQuery({
+  //   queryKey: ['chat', $chat.id],
+  //   queryFn: () => {
+  //     if ($chat.id === NEW_CHAT_ID) {
+  //       return Promise.resolve(null);
+  //     }
+  //     return getChat($chat.id);
+  //   },
+  //   onSuccess(data) {
+  //     _chatId = $chat.id;
+  //     _chatHistory = data?.chat.history || ({ currentId: null, messages: {} } as any);
+  //     setChatHistory(_chatHistory);
+  //   },
+  // });
 
   useEffect(() => {
     $socket.on('chat-events', (e: ChatEvent) => {
@@ -92,7 +98,7 @@ export const Chat = (props: { prompt: string }) => {
   }, [$chat.id, $socket]);
 
   useEffect(() => {
-    if (props.prompt && chatQuery.isSuccess) {
+    if (props.prompt && $chatQuery.isSuccess) {
       submit(props.prompt, $chat.id);
     }
   }, [props.prompt]);
@@ -345,9 +351,9 @@ export const Chat = (props: { prompt: string }) => {
     // }
   };
 
-  const middleBarHeight = appHeight - ElementDefaults.topBar - ElementDefaults.bottomBar;
+  const middleBarHeight = appHeight - ElementDefaults.topBar - (promptHeight + 2);
 
-  if (chatQuery.isLoading) {
+  if ($chatQuery.isLoading) {
     return (
       <Wrapper isFocused={isFocused} height={middleBarHeight}>
         <Text>Loading...</Text>
@@ -355,7 +361,7 @@ export const Chat = (props: { prompt: string }) => {
     );
   }
 
-  if (chatQuery.error) {
+  if ($chatQuery.isError) {
     return (
       <Wrapper isFocused={isFocused} height={middleBarHeight}>
         <Text>Error</Text>
@@ -363,7 +369,7 @@ export const Chat = (props: { prompt: string }) => {
     );
   }
 
-  const historyToRender = chatHistory || chatQuery.data?.chat.history || { messages: {} };
+  const historyToRender = chatHistory || $chatQuery.data?.chat.history || { messages: {} };
   const scrollHeight = middleBarHeight - 2;
   const messages: (
     | { role: 'user'; content: string; id: string }

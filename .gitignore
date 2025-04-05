@@ -46,3 +46,6 @@ test-results/
 # Local development artifacts
 .DS_Store  # macOS specific
 .idea/     # JetBrains IDE settings
+
+# husky
+.husky/_

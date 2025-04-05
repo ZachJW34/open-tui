@@ -1,8 +1,14 @@
 import { Box, measureElement } from 'tuir';
 import React, { ReactNode, useEffect, useReducer } from 'react';
 import { useInput } from 'tuir';
+import { logger } from '../utils/logger';
 
 type State = { height: number; scrollTop: number; innerHeight: number };
+
+export type Dimensions = {
+  height: number;
+  width: number;
+};
 
 const reducer = (state: State, action: any): State => {
   switch (action.type) {
@@ -40,10 +46,12 @@ export function ScrollArea({
   height,
   children,
   disabled,
+  onDimensionsChange,
 }: {
   height: number;
   children: ReactNode;
   disabled?: boolean;
+  onDimensionsChange?: (dimensions: Dimensions) => void;
 }) {
   const [state, dispatch] = useReducer(reducer, {
     innerHeight: 0,
@@ -59,6 +67,9 @@ export function ScrollArea({
       if (state.innerHeight === dimensions.height) {
         return;
       }
+
+      onDimensionsChange?.(dimensions);
+      logger.info({ ScrollArea: dimensions });
 
       dispatch({
         type: 'SET_INNER_HEIGHT',

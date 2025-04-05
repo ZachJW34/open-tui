@@ -66,15 +66,15 @@ bun run dev
 
 Open WebUI is a feature packed application so I don't expect this TUI to ever have featuer parity with it. Nonetheless, I'd like to expand upon it so as to limit the amount of times I have to switch to the web version. This could be:
 
-- Multiline prompt support: Currently annoying to only be able to input on one continuous line without line breaks
-- Respect Open WebUI user settings: Templates, variables etc..
-- Delete chats
-- Regenerate/modify responses
-- File upload support
-- Multi-model response
-- Theming
-- a whole lot more...
-- Add tests
+- [x] Multiline prompt support: Currently annoying to only be able to input on one continuous line without line breaks
+- [ ] Respect Open WebUI user settings: Templates, variables etc..
+- [ ] Delete chats
+- [ ] Regenerate/modify responses
+- [ ] File upload support
+- [ ] Multi-model response
+- [ ] Theming
+- [ ] a whole lot more...
+- [ ] Add tests
 
 Currently, it scratches the itch of being able to quickly pull up an LLM while developing. Plus, TUIs just feel and look cool.
 

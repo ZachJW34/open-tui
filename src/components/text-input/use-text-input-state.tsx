@@ -15,7 +15,11 @@ const reducer = (state, action) => {
       };
     }
     case 'insert': {
-      let fixed = action.text.replaceAll('\r', '\n').replaceAll('[27;2;13~', '\n');
+      let fixed = action.text
+        .replaceAll('\r', '\n')
+        .replaceAll('[27;2;13~', '\n')
+        .replaceAll('\u001b', '');
+
       return {
         ...state,
         previousValue: state.value,

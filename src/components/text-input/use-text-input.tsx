@@ -38,12 +38,13 @@ export const useTextInput = ({ isDisabled = false, state, placeholder = '' }) =>
   }, [isDisabled, state.value, state.cursorOffset, state.suggestion]);
   useInput(
     (input, key) => {
+      input = input.replaceAll(/\u001b\[[AB]/g, '');
       if (
-        key.upArrow ||
-        key.downArrow ||
+        key.up ||
+        key.down ||
         (key.ctrl && input === 'c') ||
-        key.tab ||
-        (key.shift && key.tab)
+        key.tab
+        // || (key.shift && key.tab)
       ) {
         return;
       }
@@ -51,14 +52,16 @@ export const useTextInput = ({ isDisabled = false, state, placeholder = '' }) =>
         state.submit();
         return;
       }
-      if (key.leftArrow) {
+      if (key.left) {
         state.moveCursorLeft();
-      } else if (key.rightArrow) {
+      } else if (key.right) {
         state.moveCursorRight();
       } else if (key.backspace || key.delete) {
         state.delete();
       } else {
-        state.insert(input);
+        if (input) {
+          state.insert(input);
+        }
       }
     },
     { isActive: !isDisabled }
