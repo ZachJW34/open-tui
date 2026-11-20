@@ -56,11 +56,15 @@ export const useTextInput = ({ isDisabled = false, state, placeholder = '' }) =>
         state.moveCursorLeft();
       } else if (key.right) {
         state.moveCursorRight();
-      } else if (key.backspace || key.delete) {
+      } else if (key.backspace || key.delete || (key.ctrl && input === 'h')) {
+        // A Backspace that arrives as ^H (0x08) is reported by tuir's keyboard as
+        // ctrl+h; treat it as a delete instead of letting it fall through as text.
         state.delete();
       } else {
         if (input) {
-          state.insert(input);
+          // Never let a control byte reach the value: unhandled sequences would be
+          // rendered into the prompt and sent as part of the message.
+          state.insert(input.replaceAll(/[\u0000-\u001f\u007f]/g, ''));
         }
       }
     },
