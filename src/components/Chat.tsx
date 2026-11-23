@@ -42,6 +42,50 @@ const Wrapper = (props: { children: React.ReactNode; isFocused: boolean; height:
 let _chatHistory: ChatHistory;
 let _chatId: string;
 
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
+type AgentStatusKind = 'working' | 'thinking' | 'done' | 'error' | 'waiting';
+
+// Owns its own animation clock so a running spinner never re-renders the
+// transcript. `startedAt` is set when a request is submitted and `durationMs` is
+// frozen once it finishes, which is what separates in-flight from completed.
+const AgentStatus = (props: {
+  status: AgentStatusKind;
+  startedAt: number | null;
+  durationMs: number | null;
+}) => {
+  const busy = props.status === 'working' || props.status === 'thinking';
+  const [frame, setFrame] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  useEffect(() => {
+    if (!busy || props.startedAt === null) {
+      return;
+    }
+    const startedAt = props.startedAt;
+    setElapsedMs(Date.now() - startedAt);
+    const id = setInterval(() => {
+      setElapsedMs(Date.now() - startedAt);
+      setFrame((f) => (f + 1) % SPINNER_FRAMES.length);
+    }, 100);
+    return () => clearInterval(id);
+  }, [busy, props.startedAt]);
+
+  const seconds = ((busy ? elapsedMs : (props.durationMs ?? 0)) / 1000).toFixed(1);
+
+  if (busy) {
+    const label = props.status === 'thinking' ? 'Thinking' : 'Generating';
+    return <Text color="yellow">{`${SPINNER_FRAMES[frame]} ${label}... ${seconds}s`}</Text>;
+  }
+  if (props.status === 'error' && props.durationMs !== null) {
+    return <Text color="red">{`✖ Failed after ${seconds}s`}</Text>;
+  }
+  if (props.durationMs !== null) {
+    return <Text color="green">{`✔ Done in ${seconds}s`}</Text>;
+  }
+  return <Text color="grey">{'● Waiting for input'}</Text>;
+};
+
 export const Chat = (props: { prompt: string }) => {
   const $chat = openWebStore.useState((s) => s.chat);
   const $chatQuery = openWebStore.useState((s) => s.chatQuery);
@@ -52,6 +96,8 @@ export const Chat = (props: { prompt: string }) => {
   const ref = useRef<any>();
   const { isFocus: isFocused } = useNode();
   const [chatHistory, setChatHistory] = useState<ChatHistory | null>(null);
+  const [run, setRun] = useState<number | null>(null);
+  const [lastDuration, setLastDuration] = useState<number | null>(null);
   const { width: appWidth, height: appHeight } = useAppStore((s) => s.dimensions);
   const promptHeight = useAppStore((s) => s.promptHeight);
 
@@ -62,6 +108,21 @@ export const Chat = (props: { prompt: string }) => {
       setChatHistory(_chatHistory);
     }
   }, [$chat, $chatQuery]);
+
+  // The agent is in flight from the moment a request is submitted until the
+  // assistant message it created is marked done, or failed.
+  useEffect(() => {
+    if (run === null) {
+      return;
+    }
+    const history = chatHistory || $chatQuery.data?.chat.history;
+    const historyMessages = Object.values(history?.messages ?? {});
+    const last = historyMessages[historyMessages.length - 1] as Message | undefined;
+    if (last && last.role === 'assistant' && (last.done || last.error)) {
+      setLastDuration(Date.now() - run);
+      setRun(null);
+    }
+  }, [run, chatHistory, $chatQuery]);
 
   // const chatQuery = useQuery({
   //   queryKey: ['chat', $chat.id],
@@ -152,6 +213,8 @@ export const Chat = (props: { prompt: string }) => {
 
     _chatHistory.messages[responseMessageId] = responseMessage;
     _chatHistory.currentId = responseMessageId;
+    setRun(Date.now());
+    setLastDuration(null);
 
     if (parentId !== null && _chatHistory.messages[parentId]) {
       _chatHistory.messages[parentId].childrenIds = [
@@ -373,14 +436,41 @@ export const Chat = (props: { prompt: string }) => {
   const scrollHeight = middleBarHeight - 2;
   const messages: (
     | { role: 'user'; content: string; id: string }
-    | { role: 'assistant'; id: string; content: string; thinking: boolean }
+    | {
+        role: 'assistant';
+        id: string;
+        content: string;
+        thinking: boolean;
+        done: boolean;
+        error: boolean;
+      }
   )[] = Object.values(historyToRender.messages).map((m) => {
     if (m.role === 'user') {
       return { role: m.role, content: m.content, id: m.id };
     } else {
-      return { role: m.role, id: m.id, ...removeDetails(m.content, ['reasoning']) };
+      return {
+        role: m.role,
+        id: m.id,
+        ...removeDetails(m.content, ['reasoning']),
+        done: m.done === true,
+        error: Boolean(m.error),
+      };
     }
   });
+
+  const lastAssistant = messages.filter((m) => m.role === 'assistant').slice(-1)[0] as
+    | Extract<(typeof messages)[number], { role: 'assistant' }>
+    | undefined;
+  const status: AgentStatusKind =
+    run !== null
+      ? lastAssistant?.thinking
+        ? 'thinking'
+        : 'working'
+      : lastAssistant
+        ? lastAssistant.error
+          ? 'error'
+          : 'done'
+        : 'waiting';
 
   return (
     <Box ref={ref} flexDirection="column" width={appWidth}>
@@ -408,6 +498,7 @@ export const Chat = (props: { prompt: string }) => {
               );
             }
           })}
+          <AgentStatus status={status} startedAt={run} durationMs={lastDuration} />
         </ScrollArea>
       </Wrapper>
     </Box>
