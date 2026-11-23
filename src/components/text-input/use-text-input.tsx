@@ -48,15 +48,73 @@ export const useTextInput = ({ isDisabled = false, state, placeholder = '' }) =>
       ) {
         return;
       }
+      // Readline-style editing. Alt is reported as meta by tuir when it parses
+      // the key, but xterm's CSI encodings reach this handler as raw text: match
+      // those first, or the stripped ESC leaves "[3;3~" typed into the prompt.
+      if (input.includes('\u001b\u007f') || input.includes('\u001b[127;3u')) {
+        state.deleteWordBackward();
+        return;
+      }
+      if (input.includes('\u001b[3;3~') || input.includes('\u001bd')) {
+        state.deleteWordForward();
+        return;
+      }
+      if (input.includes('\u001b[1;3D')) {
+        state.moveCursorWordLeft();
+        return;
+      }
+      if (input.includes('\u001b[1;3C')) {
+        state.moveCursorWordRight();
+        return;
+      }
+      if (key.meta && (key.backspace || key.delete)) {
+        state.deleteWordBackward();
+        return;
+      }
+      if (key.meta && key.left) {
+        state.moveCursorWordLeft();
+        return;
+      }
+      if (key.meta && key.right) {
+        state.moveCursorWordRight();
+        return;
+      }
       if (key.shift && key.return) {
         // Shift+Enter is a newline, not a submit.
         state.insert('\n');
         return;
       }
-      if (key.ctrl && input === 'j') {
-        // Ctrl+J is LF (0x0a), which tuir's keyboard reports as ctrl+j.
-        state.insert('\n');
-        return;
+      if (key.ctrl && !key.meta) {
+        switch (input) {
+          case 'a':
+            state.moveCursorStart();
+            return;
+          case 'e':
+            state.moveCursorEnd();
+            return;
+          case 'b':
+            state.moveCursorLeft();
+            return;
+          case 'f':
+            state.moveCursorRight();
+            return;
+          case 'd':
+            state.deleteForward();
+            return;
+          case 'j':
+            // Ctrl+J is LF (0x0a), which tuir's keyboard reports as ctrl+j.
+            state.insert('\n');
+            return;
+          case 'k':
+            state.deleteToLineEnd();
+            return;
+          case 'u':
+            state.deleteToLineStart();
+            return;
+          case 'w':
+            state.deleteWordBackward();
+            return;
+        }
       }
       if (key.return) {
         state.submit();
