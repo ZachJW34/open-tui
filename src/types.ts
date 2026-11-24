@@ -205,7 +205,7 @@ export type Config = {
 export type ChatEvent = {
   chat_id: string;
   message_id: string;
-  data: { type: 'other'; data?: any } | ChatCompletionData;
+  data: { type: 'other'; data?: any } | ChatCompletionData | ResponseCompletionData;
 };
 
 export type ChatCompletionData = {
@@ -218,8 +218,21 @@ export type ChatCompletionData = {
     error?: any;
     usage?: any;
     done?: true;
-    content: string;
+    content?: string;
     title?: string;
+    output?: { content?: { text?: string }[] }[];
+  };
+};
+
+// Open WebUI >= 0.13 sends the streamed assistant text as `response:completion`
+// events: either an OpenAI-style chunk (`choices[0].delta.content`) or a
+// Responses-API delta whose `delta` is the text itself.
+export type ResponseCompletionData = {
+  type: 'response:completion';
+  data: {
+    type?: string;
+    delta?: string | { role?: string; content?: string };
+    choices?: { delta?: { role?: string; content?: string } }[];
   };
 };
 

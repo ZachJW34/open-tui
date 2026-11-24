@@ -1,7 +1,13 @@
 import { Box, Text, Spacer } from 'tuir';
 import React, { useEffect, useRef, useState } from 'react';
 import { ScrollArea } from './ScrollArea.js';
-import { ChatCompletionData, ChatEvent, ChatHistory, Message } from '../types.js';
+import {
+  ChatCompletionData,
+  ChatEvent,
+  ChatHistory,
+  Message,
+  ResponseCompletionData,
+} from '../types.js';
 import {
   chatCompleted,
   createMessagesList,
@@ -38,6 +44,24 @@ const Wrapper = (props: { children: React.ReactNode; isFocused: boolean; height:
     ></Box>
   </Box>
 );
+
+// Open WebUI >= 0.13 finishes a completion with the text under `output[]`
+// (`data.output[0].content[0].text`); older servers sent it as `content`.
+function extractCompletionContent(data: ChatCompletionData['data']): string | undefined {
+  if (typeof data.content === 'string' && data.content.length > 0) {
+    return data.content;
+  }
+
+  const parts = data.output?.[0]?.content;
+  if (Array.isArray(parts)) {
+    const text = parts.map((part) => (typeof part?.text === 'string' ? part.text : '')).join('');
+    if (text.length > 0) {
+      return text;
+    }
+  }
+
+  return undefined;
+}
 
 let _chatHistory: ChatHistory;
 let _chatId: string;
@@ -79,7 +103,7 @@ export const Chat = (props: { prompt: string }) => {
   // });
 
   useEffect(() => {
-    $socket.on('chat-events', (e: ChatEvent) => {
+    $socket.on('events', (e: ChatEvent) => {
       logger.info({ CONTEXT: 'WS', ...e });
 
       if (e.chat_id === _chatId) {
@@ -87,13 +111,15 @@ export const Chat = (props: { prompt: string }) => {
         if (message) {
           if (e.data.type === 'chat:completion') {
             chatCompletionEventHandler(e.data.data, message, _chatId);
+          } else if (e.data.type === 'response:completion') {
+            responseCompletionEventHandler(e.data.data, message);
           }
         }
       }
     });
 
     return () => {
-      $socket.off('chat-events');
+      $socket.off('events');
     };
   }, [$chat.id, $socket]);
 
@@ -241,12 +267,28 @@ export const Chat = (props: { prompt: string }) => {
     return _chatId;
   };
 
+  // Open WebUI >= 0.13 streams the assistant text as `response:completion`
+  // deltas (type `response.output_text.delta`) rather than inside
+  // `chat:completion`, so append them to the message as they arrive.
+  const responseCompletionEventHandler = (
+    data: ResponseCompletionData['data'],
+    message: Message
+  ) => {
+    const delta = typeof data.delta === 'string' ? data.delta : data.choices?.[0]?.delta?.content;
+
+    if (typeof delta === 'string' && delta.length > 0) {
+      message.content = `${message.content ?? ''}${delta}`;
+      _chatHistory.messages[message.id] = message;
+      setChatHistory({ ..._chatHistory });
+    }
+  };
+
   const chatCompletionEventHandler = async (
     data: ChatCompletionData['data'],
     message: Message,
     chatId: string
   ) => {
-    const { id, done, choices, content, sources, selected_model_id, error, usage } = data;
+    const { done, error, usage } = data;
 
     if (error) {
       message.error = {
@@ -265,7 +307,8 @@ export const Chat = (props: { prompt: string }) => {
       setChatHistory({ ..._chatHistory });
     }
 
-    if (content) {
+    const content = extractCompletionContent(data);
+    if (content !== undefined) {
       message.content = content;
     }
 
