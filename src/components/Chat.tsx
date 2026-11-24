@@ -67,7 +67,8 @@ const AgentStatus = (props: {
     const id = setInterval(() => {
       setElapsedMs(Date.now() - startedAt);
       setFrame((f) => (f + 1) % SPINNER_FRAMES.length);
-    }, 100);
+      // The elapsed clock and the spinner advance together; 4/s still reads as live.
+    }, 250);
     return () => clearInterval(id);
   }, [busy, props.startedAt]);
 
